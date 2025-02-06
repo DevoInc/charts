@@ -1,0 +1,10 @@
+bin/
+_tmp/
+build/
+
+.DS_Store
+.gitconfig
+charts
+.idea
+.vscode
+*.log
