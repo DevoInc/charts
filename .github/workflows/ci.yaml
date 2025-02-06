@@ -1,0 +1,22 @@
+name: CI
+on:
+  pull_request:
+    paths:
+      - "**/*.tpl"
+      - "**/*.yaml"
+  workflow_dispatch:
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    if: github.repository == 'DevoInc/charts'
+    steps:
+      -
+        name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - run: make install-toolchain
+      - run: make verify
+      - run: make package
