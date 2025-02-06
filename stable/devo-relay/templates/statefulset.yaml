@@ -1,0 +1,93 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "devo-relay.fullname" . }}
+  labels:
+    {{- include "devo-relay.labels" . | nindent 4 }}
+spec:
+  serviceName: {{ include "devo-relay.serviceDomain" . }}
+  selector:
+    matchLabels:
+      {{- include "devo-relay.selectorLabels" . | nindent 6 }}
+  replicas: {{ .Values.relay.replicaCount }}
+  template:
+    metadata:
+      {{- with .Values.relay.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "devo-relay.labels" . | nindent 8 }}
+        {{- with .Values.relay.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      serviceAccountName: {{ include "devo-relay.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.relay.podSecurityContext | nindent 8 }}
+      {{- with .Values.relay.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      initContainers:
+        - name: "{{ .Chart.Name }}-init-container"
+          image: "{{ .Values.relay.image.repository }}:{{ .Values.relay.image.tag | default .Chart.AppVersion }}"
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.name       
+          command: ["sh", "-c"]
+          args:
+            - |
+              {{- include "devo-relay.relayInit.sh.tpl" . | nindent 14 }}
+          {{- with .Values.relay.volumeMountsInit }}
+          volumeMounts:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}      
+      containers:
+        - name: {{ .Chart.Name }}
+          image: "{{ .Values.relay.image.repository }}:{{ .Values.relay.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.relay.image.pullPolicy }}
+          securityContext:
+            {{- toYaml .Values.relay.containerSecurityContext | nindent 12 }}
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.name    
+          {{- with .Values.relay.environmentVariables }}      
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- if .Values.relay.livenessProbe }}
+          livenessProbe:
+            {{- toYaml .Values.relay.livenessProbe | nindent 12 }}
+          {{- end }}
+          {{- if .Values.relay.readinessProbe }}
+          readinessProbe:
+            {{- toYaml .Values.relay.readinessProbe | nindent 12 }}
+          {{- end }}
+          resources:
+            {{- toYaml .Values.relay.resources | nindent 12 }}
+          {{- with .Values.relay.volumeMounts }}
+          volumeMounts:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+      {{- with .Values.relay.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.relay.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.relay.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+  {{- with .Values.relay.volumeClaimTemplates }}    
+  volumeClaimTemplates:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}  

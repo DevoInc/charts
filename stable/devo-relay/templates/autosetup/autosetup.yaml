@@ -1,0 +1,93 @@
+{{- if .Values.autosetup.enable }}
+{{- $jobNameRand := lower (randAlphaNum 3) -}}
+{{- $firstPodIndex := .Values.autosetup.firstPodIndex | required "firstPodIndex must be >= 0" -}}
+{{- $lastPodIndex := sub (add .Values.autosetup.firstPodIndex .Values.autosetup.numberOfJobs) 1 -}}
+{{- $configmapName := .Values.autosetup.configmapName | default "relay-autosetup-config" }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $configmapName }}
+data:
+  autosetup.properties: |
+    {{- include "devo-relay.autosetup.properties.tpl" . | nindent 4 }}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ .Values.autosetup.jobName | default (printf "%s-%s" "relay-autosetup" $jobNameRand) }}
+spec:
+  completionMode: Indexed
+  completions: {{ .Values.autosetup.numberOfJobs }}
+  parallelism: {{ .Values.autosetup.parallelism }}
+  backoffLimitPerIndex: 1
+  maxFailedIndexes: 1
+  ttlSecondsAfterFinished: {{ .Values.autosetup.cleanupAfterFinishedSeconds }}
+  template:
+    spec:
+      initContainers:
+        - name: devo-ng-relay-cli-init
+          image: ubuntu
+          env:
+            - name: POD_NAME_PREFIX
+              value: {{ .Values.autosetup.podNamePrefix }}
+            - name: FIRST_POD_INDEX
+              value: {{ quote $firstPodIndex }}
+            - name: LAST_POD_INDEX
+              value: {{ quote $lastPodIndex }}
+            - name: RELAY_NAME_PREFIX
+              value: {{ .Values.autosetup.relayNamePrefix | default "relay" }}
+            - name: RELAY_SERVICE_DOMAIN
+              value: {{ .Values.autosetup.serviceDomain }}
+          {{- with .Values.autosetup.environmentVariables }}      
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          command: ["bash", "-c"]
+          args: 
+            - |
+              # Selecting the pod where applying the setup
+              POD_INDEXES=({ {{- $firstPodIndex }}..{{ $lastPodIndex -}} })
+              POD_HOST=$(echo $POD_NAME_PREFIX-${POD_INDEXES[$JOB_COMPLETION_INDEX]}.$RELAY_SERVICE_DOMAIN)
+              echo -n $POD_HOST > /opt/devo/shared/POD_HOST
+
+              # Selecting and interpolating the relay name
+              AUTOSETUP_RELAY_NAME=$(echo $RELAY_NAME_PREFIX-${POD_INDEXES[$JOB_COMPLETION_INDEX]})
+              sed "s/<AUTOSETUP_RELAY_NAME>/$AUTOSETUP_RELAY_NAME/g" /opt/devo/autosetup.properties > /opt/devo/shared/AUTOSETUP
+
+              # Inject secrets from environment variables
+              sed -i "s/$AUTOSETUP_RELAY_\(API_KEY|API_SECRET|PROXY_USER|PROXY_PASS\)>/$AUTOSETUP_RELAY_\1/g" /opt/devo/shared/AUTOSETUP
+          volumeMounts:
+            - name: shared-config          
+              mountPath: /opt/devo/shared          
+            - name: autosetup-config
+              mountPath: /opt/devo/autosetup.properties
+              subPath: autosetup.properties              
+      containers:
+        - name: devo-ng-relay-cli
+          image: {{ .Values.autosetup.image.repository }}:{{ .Values.autosetup.image.tag }}           
+          command: ["sh", "-c"]
+          args: 
+            - |
+              echo "Running autosetup on pod ($(cat /opt/devo/shared/POD_HOST)) ..."
+              java -jar /opt/devo/devo-ng-relay-cli.jar \
+              {{- if .Values.autosetup.force }}
+              --force \
+              {{- end }}
+              --host=$(cat /opt/devo/shared/POD_HOST) \
+              --autosetup /opt/devo/shared/AUTOSETUP
+              echo "Autosetup finished for pod..."
+          volumeMounts:
+            - name: shared-config          
+              mountPath: /opt/devo/shared          
+            - name: autosetup-config
+              mountPath: /opt/devo/autosetup.properties
+              subPath: autosetup.properties
+      volumes:
+        - name: shared-config
+          emptyDir: {}         
+        - name: autosetup-config
+          projected:
+            sources:
+              - configMap:
+                  name: {{ $configmapName }}
+      restartPolicy: Never
+{{- end }}

@@ -1,0 +1,205 @@
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+relay:
+  nameOverride: ""
+  fullnameOverride: ""
+
+  replicaCount: 1
+
+  image:
+    repository: devoinc/devo-ng-relay
+    pullPolicy: IfNotPresent
+    # -- Overrides the image tag whose default is the chart appVersion.
+    tag: ""
+
+  imagePullSecrets: []
+
+  serviceAccount:
+    # -- Specifies whether a service account should be created
+    create: true
+    # -- Annotations to add to the service account
+    annotations: {}
+    # -- The name of the service account to use.
+    # If not set and create is true, a name is generated using the fullname template
+    name: ""
+
+  podSecurityContext:
+    runAsUser: 2000
+    runAsGroup: 2000
+    fsGroup: 2000
+
+  containerSecurityContext:
+    runAsNonRoot: true
+
+  podAnnotations: {}
+  podLabels: {}
+
+  environmentVariables:
+    - name: JAVA_OPTS
+      value: "-XX:MaxRAMPercentage=80"
+
+  resources: 
+    requests:
+      memory: 2Gi
+      cpu: 2
+    limits:
+      memory: 8Gi
+      cpu: 8
+
+  livenessProbe: {}
+  readinessProbe: {}
+
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: 
+          - ReadWriteOnce
+        storageClassName: efs-relay
+        resources:
+          requests:
+            storage: 10Mi # Not used in EFS, but it is a required field in k8s
+
+  volumeMounts:
+    - name: data
+      mountPath: /opt/devo/ng-relay/conf 
+      subPathExpr: $(POD_NAME)/conf
+    - name: data
+      mountPath: /var/logt
+      subPathExpr: $(POD_NAME)/varlogt
+
+  initConfMountPath: &initConfMountPath "/relay-conf"
+
+  # Distint to volumeMounts, we need to mount conf on
+  # different path
+  volumeMountsInit:
+    - name: data
+      mountPath: *initConfMountPath
+      subPathExpr: $(POD_NAME)/conf
+
+  nodeSelector: {}
+
+  tolerations: []
+
+  affinity: {}
+
+  loadBalancerPublic:
+    enabled: false
+    loadBalancerClass: service.k8s.aws/nlb
+    annotations: 
+      # AWS Network Load Balancer
+      service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: ip
+      service.beta.kubernetes.io/aws-load-balancer-scheme: internet-facing
+      service.beta.kubernetes.io/aws-load-balancer-target-group-attributes: "preserve_client_ip.enabled=true"
+    ports: []  
+
+  loadBalancerInternal:
+    enabled: false
+    ports: []
+
+autosetup:
+  # -- Enable or disable the autosetup yaml generation
+  enable: false
+
+  image:
+    # -- Relay CLI image used for autosetup (Required)
+    repository: devoinc/devo-ng-relay-cli
+    tag: 1.6.1  
+
+  # -- Job name. 
+  # (Not Required) (Default: relay-autosetup-<randomString>)
+  jobName: 
+
+  # -- Clean up job after finished 
+  # (Required)
+  cleanupAfterFinishedSeconds: 20
+
+  # -- Pod name prefix without index number 
+  # e.g if pod name is "relay-0", podNamePrefix is "relay"
+  # You can get it from "$ kubectl get pods -n <relayNamespace>"
+  # (Required)
+  podNamePrefix: devo-relay
+
+  # -- First relay pod index where applying autosetup
+  # (Required)
+  firstPodIndex: 0
+  # -- Defineks the number of relays you want to set up by starting in the firstPodIndex.
+  # For example, if you set 3 and firstPodIndex: 0, then you will launch three
+  # autosetups jobs, for pods 0, 1 and 2. 
+  # (Required)
+  numberOfJobs: 1
+  # -- Max number of autosetup jobs to execute in parallel
+  # (Required)
+  parallelism: 1
+
+  # -- Network domain name to be able to connect to pods by name instead of IP 
+  # You can get it from "$ kubectl get services -n <relayNamespace>"
+  # (Required)
+  serviceDomain: 
+
+  # -- Environment variables for secrets like apikey, proxyPass...
+  # See below environment variable name for each autosetup property
+  environmentVariables: []
+
+  # -- Prefix for <AUTOSETUP_RELAY_NAME> 
+  # The name will be completed with the pod index number.
+  # If prefix: "relay", names in the web will be relay-0, relay-1, ...
+  # (Not Required) (Default: "relay")
+  relayNamePrefix: 
+
+  # -- Force setup when relay already exists
+  # (Not Required) (Default: false)
+  force: false
+
+  # -- Name used for autosetup.properties configmap
+  # (Not Required) (Default: "relay-autosetup-config")
+  configmapName: 
+
+  config:
+    # -- Relay name (Not Required) (Default: <AUTOSETUP_RELAY_NAME>)
+    # The placeholder <AUTOSETUP_RELAY_NAME> allows setting up the name dinamically
+    # for each replica by using the 'relayNamePrefix' value. If you use a fixed
+    # value you have to set up the relay name manually for each replica, that is,
+    # firstPodIndex
+    relayName: 
+
+    # -- Cloud (Not Required).
+    # Valid values are: AWS_US, AWS_EU, AWS_CA, APAC, AWS_US3, MANUAL
+    # @default -- MANUAL, if empty
+    cloud: 
+
+    ## Devo data collector
+    # -- Collector endpoint (Required if cloud is not specified or cloud is MANUAL)  
+    devoEventLoadBalancerHost: 
+    # -- Collector port (Required if cloud is not specified or cloud is MANUAL)
+    devoEventLoadBalancerPort: 
+
+    ## APIs communication
+    # -- Relay API URI (Required if cloud is not specified or cloud is MANUAL)
+    relayApiUri: 
+    # -- Query API URI (Required if cloud is not specified or cloud is MANUAL)
+    queryApiUri: 
+
+    ## API Credentials
+    # -- API Key (Required)
+    # Environment variable name: AUTOSETUP_RELAY_API_KEY
+    apiKey: 
+    # -- API Secret (Required)
+    # Environment variable name: AUTOSETUP_RELAY_API_SECRET
+    apiSecret: 
+
+    ## Proxy Info
+    # -- Proxy host (Not Required)
+    proxyHost: 
+    # -- Proxy port (Required if proxy host has value)
+    proxyPort: 
+    # -- Proxy username (Not Required)
+    # Environment variable name: AUTOSETUP_RELAY_PROXY_USER
+    proxyUsername: 
+    # -- Proxy password (Not Required)
+    # Environment variable name: AUTOSETUP_RELAY_PROXY_PASS
+    proxyPassword: 
+
+    # -- Enable/disable impersonation (Not Required) (Default: false)
+    enableImpersonation: 
