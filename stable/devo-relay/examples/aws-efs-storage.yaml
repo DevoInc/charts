@@ -1,0 +1,23 @@
+# This yaml defines how to use EFS storage with the Relay.
+#
+# The efs-relay storage class is an example of storage class name
+# controlled by a k8s administrator.
+
+volumeClaimTemplates:
+  - metadata:
+      name: data
+    spec:
+      accessModes: 
+        - ReadWriteOnce
+      storageClassName: efs-relay
+      resources:
+        requests:
+          storage: 10Mi # Not used in EFS, but it is a required field in k8s
+
+volumeMounts:
+  - name: data
+    mountPath: /opt/devo/ng-relay/conf 
+    subPathExpr: $(POD_NAME)/conf
+  - name: data
+    mountPath: /var/logt
+    subPathExpr: $(POD_NAME)/varlogt

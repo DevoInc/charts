@@ -1,0 +1,17 @@
+# Headless service to create a network domain for the statefulset pods
+# and be able to name them by hostname in the domain instead by pod IP 
+# when using the Devo Relay CLI. For example: 
+# 
+# $ nslookup <relay-pod-name>.<headless-svc-name>.<namespace>.svc.cluster.local
+#
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "devo-relay.serviceDomain" . }}
+  labels:
+    {{- include "devo-relay.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  clusterIP: None
+  selector:
+    {{- include "devo-relay.selectorLabels" . | nindent 4 }}

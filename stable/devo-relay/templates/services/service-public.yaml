@@ -1,0 +1,21 @@
+{{- if .Values.relay.loadBalancerPublic.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "devo-relay.fullname" . }}-svc-public
+  labels:
+    {{- include "devo-relay.labels" . | nindent 4 }}
+  annotations:
+    {{- toYaml .Values.relay.loadBalancerPublic.annotations | nindent 4 }}
+spec:
+  type: LoadBalancer
+  {{- if .Values.relay.loadBalancerPublic.loadBalancerClass }}
+  loadBalancerClass: {{ .Values.relay.loadBalancerPublic.loadBalancerClass }}
+  {{- end }}  
+  selector:
+    {{- include "devo-relay.selectorLabels" . | nindent 4 }}
+  {{- with .Values.relay.loadBalancerPublic.ports }}
+  ports:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+{{- end }}

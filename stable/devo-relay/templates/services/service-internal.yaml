@@ -1,0 +1,16 @@
+{{- if .Values.relay.loadBalancerInternal.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "devo-relay.fullname" . }}-svc-internal
+  labels:
+    {{- include "devo-relay.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "devo-relay.selectorLabels" . | nindent 4 }}
+  {{- with .Values.relay.loadBalancerInternal.ports }}
+  ports:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+{{- end }}

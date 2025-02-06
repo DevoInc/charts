@@ -1,0 +1,30 @@
+# This yaml defines how to use EBS storage with the Relay.
+#
+# The gp3-encrypted storage class is an example of storage class name
+# controlled by a k8s administrator.
+
+volumeClaimTemplates:
+  - metadata:
+      name: config
+    spec:
+      accessModes: 
+        - ReadWriteOnce
+      storageClassName: gp3-encrypted
+      resources:
+        requests:
+          storage: 50Mi          
+  - metadata:
+      name: disk-buffer-and-local-logs
+    spec:
+      accessModes: 
+        - ReadWriteOnce
+      storageClassName: gp3-encrypted
+      resources:
+        requests:
+          storage: 200Mi
+
+volumeMounts:
+  - name: config
+    mountPath: /opt/devo/ng-relay/conf
+  - name: disk-buffer-and-local-logs
+    mountPath: /var/logt
