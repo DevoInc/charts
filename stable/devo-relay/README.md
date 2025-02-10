@@ -37,6 +37,8 @@ Add the Devo repository to Helm:
 $ helm repo add devo https://charts.devo.com
 ```
 
+Before installing you need to configure [storage](#storage-volumes-and-buffers).
+
 Install the Devo Relay in a new k8s namespace:
 
 ```console
@@ -162,7 +164,7 @@ The following table lists the configurable parameters of the chart and their def
 | relay.containerSecurityContext.runAsNonRoot | bool | `true` |  |
 | relay.environmentVariables[0].name | string | `"JAVA_OPTS"` |  |
 | relay.environmentVariables[0].value | string | `"-XX:MaxRAMPercentage=80"` |  |
-| relay.fullnameOverride | string | `""` |  |
+| relay.fullnameOverride | string | `""` | Completely replaces the generated name. See _helpers.tpl file More info: https://stackoverflow.com/a/63839389   |
 | relay.image.pullPolicy | string | `"IfNotPresent"` |  |
 | relay.image.repository | string | `"devoinc/devo-ng-relay"` |  |
 | relay.image.tag | string | `""` | Overrides the image tag whose default is the chart appVersion. |
@@ -177,7 +179,7 @@ The following table lists the configurable parameters of the chart and their def
 | relay.loadBalancerPublic.enabled | bool | `false` |  |
 | relay.loadBalancerPublic.loadBalancerClass | string | `"service.k8s.aws/nlb"` |  |
 | relay.loadBalancerPublic.ports | list | `[]` |  |
-| relay.nameOverride | string | `""` |  |
+| relay.nameOverride | string | `""` | Replaces the name of the chart in the Chart.yaml file. See _helpers.tpl file More info: https://stackoverflow.com/a/63839389 |
 | relay.nodeSelector | object | `{}` |  |
 | relay.podAnnotations | object | `{}` |  |
 | relay.podLabels | object | `{}` |  |
